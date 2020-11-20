@@ -3,40 +3,35 @@
 // icon-color: yellow; icon-glyph: file-medical-alt;
 
 /**
- * Licence: Robert Koch-Institut (RKI), dl-de/by-2-0
+ * Licence: Dipartimento della Protezione Civile (DPC), CC-BY-4.0
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
- * BASE VERSION FORKED FROM AUTHOR: kevinkub https://gist.github.com/kevinkub/46caebfebc7e26be63403a7f0587f664/c5db6e2c1c45a41bdd4a85990c0d0b883915b3c3
- * THIS VERSION (AUTHOR: https://github.com/rphl) https://github.com/rphl/corona-widget/
+ * BASE VERSION FORKED FROM AUTHOR: rphl https://github.com/rphl/corona-widget
+ * THIS VERSION (AUTHOR: https://github.com/lukezona) https://github.com/lukezona/corona-widget
  * 
  */
 
-// ============= EXTRA KONFIGURATION ============= ============= ===========
+// ============= CONFIGURAZIONE =============
 
-const CONFIG_OPEN_URL = "https://experience.arcgis.com/experience/478220a4c454480e823b17327b2bf1d4" // open RKI dashboard on tap, CONFIG_OPEN_URL=false to disable
-const CONFIG_SHOW_AREA_ICON = true // show "Icon" before AreaName: Like KS = Kreisfreie Stadt, LK = Landkreis,...
+const CONFIG_OPEN_URL = "http://opendatadpc.maps.arcgis.com/apps/opsdashboard/index.html#/dae18c330e8e4093bb090ab0aa2b4892" // open DPC dashboard on tap, CONFIG_OPEN_URL=false to disable
 const CONFIG_GRAPH_SHOW_DAYS = 14
 const CONFIG_MAX_CACHED_DAYS = 14 // WARNING!!! Smaller values will delete saved days > CONFIG_MAX_CACHED_DAYS. Backup JSON first ;-)
-const CONFIG_CSV_RVALUE_FIELDS = ['Schätzer_7_Tage_R_Wert', 'Punktschätzer des 7-Tage-R Wertes'] // try to find possible field (column) with rvalue, because rki is changing columnsnames and encoding randomly on each update
 const CONFIG_REFRESH_INTERVAL = 60 * 60 // interval the widget is update in (in seconds)
 const CONFIG_SHOW_CASES_TREND_ARROW = true // show trend arrow for cases
 
 // ============= ============= ============= ============= =================
-// HALT, STOP !!!
-// NACHFOLGENDE ZEILEN NUR AUF EIGENE GEFAHR ÄNDERN !!!
+// FERMO, STOP !!!
+// MODIFICARE LE SEGUENTI RIGHE SOLO A PROPRIO RISCHIO E PERICOLO !!!
 // ============= ============= ============= ============= =================
-// ZUR KONFIGURATION SIEHE README: 
-// https://github.com/rphl/corona-widget/blob/master/README.md
+// PER LA CONFIGURAZIONE VEDERE README:
+// https://github.com/lukezona/corona-widget/blob/master/README.md
 // ============= ============= ============= ============= =================
 
-
-const outputFields = 'GEN,cases,cases_per_100k,cases7_per_100k,cases7_bl_per_100k,last_update,BL,RS,IBZ';
-const apiUrl = (location) => `https://services7.arcgis.com/mOBPykOjAyBO2ZKk/arcgis/rest/services/RKI_Landkreisdaten/FeatureServer/0/query?where=1%3D1&outFields=${outputFields}&geometry=${location.longitude.toFixed(3)}%2C${location.latitude.toFixed(3)}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelWithin&returnGeometry=false&outSR=4326&f=json`
-const outputFieldsStates = 'Fallzahl,LAN_ew_GEN,cases7_bl_per_100k';
-const apiUrlStates = `https://services7.arcgis.com/mOBPykOjAyBO2ZKk/arcgis/rest/services/Coronaf%E4lle_in_den_Bundesl%E4ndern/FeatureServer/0/query?where=1%3D1&outFields=${outputFieldsStates}&returnGeometry=false&outSR=4326&f=json`
-const apiUrlNewCases = 'https://services7.arcgis.com/mOBPykOjAyBO2ZKk/arcgis/rest/services/RKI_COVID19/FeatureServer/0/query?f=json&where=NeuerFall%20IN(1%2C%20-1)&returnGeometry=false&spatialRel=esriSpatialRelIntersects&outFields=*&outStatistics=%5B%7B%22statisticType%22%3A%22sum%22%2C%22onStatisticField%22%3A%22AnzahlFall%22%2C%22outStatisticFieldName%22%3A%22value%22%7D%5D&resultType=standard&cacheHint=true'
-const apiRUrl = `https://www.rki.de/DE/Content/InfAZ/N/Neuartiges_Coronavirus/Projekte_RKI/Nowcasting_Zahlen_csv.csv?__blob=publicationFile`
+const apiUrlNational = `https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-json/dpc-covid19-ita-andamento-nazionale.json`;
+const apiUrlNationalToday = `https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-json/dpc-covid19-ita-andamento-nazionale-latest.json`;
+const apiUrlRegional = `https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-json/dpc-covid19-ita-regioni.json`;
+const apiUrlRegionalToday = `https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-json/dpc-covid19-ita-regioni-latest.json`;
 
 const LIMIT_DARKDARKRED = 250
 const LIMIT_DARKRED = 100
@@ -50,36 +45,32 @@ const LIMIT_ORANGE_COLOR = new Color('faa31b')
 const LIMIT_YELLOW_COLOR = new Color('f7dd31')
 const LIMIT_GREEN_COLOR = new Color('00ff80')
 const LIMIT_GRAY_COLOR = new Color('d0d0d0')
-const BUNDESLAENDER_SHORT = {
-    'Baden-Württemberg': 'BW',
-    'Bayern': 'BY',
-    'Berlin': 'BE',
-    'Brandenburg': 'BB',
-    'Bremen': 'HB', 
-    'Hamburg': 'HH',
-    'Hessen': 'HE',
-    'Mecklenburg-Vorpommern': 'MV',
-    'Niedersachsen': 'NI',
-    'Nordrhein-Westfalen': 'NRW',
-    'Rheinland-Pfalz': 'RP',
-    'Saarland': 'SL',
-    'Sachsen': 'SN',
-    'Sachsen-Anhalt': 'ST',
-    'Schleswig-Holstein': 'SH',
-    'Thüringen': 'TH'
+const CODICI_REGIONI = {
+    'Abruzzo': 'AB',
+    'Basilicata': 'BA',
+    'Calabria': 'CL',
+    'Emilia-Romagna': 'ER',
+    'Friuli-Venezia Giulia': 'FV', 
+    'Lazio': 'LA',
+    'Liguria': 'LI',
+    'Lombardia': 'LO',
+    'Marche': 'MA',
+    'Molise': 'MO',
+    'Piemonte': 'PI',
+    'Puglia': 'PU',
+    'Sardegna': 'SA',
+    'Sicilia': 'SI',
+    'Toscana': 'TO',
+    'Trentino-Alto Adige': 'TA',
+    'Umbria': 'UM',
+    'Valle d\'Aosta': 'VA',
+    'Veneto': 'VE',
 };
 
 let MEDIUMWIDGET = (config.widgetFamily === 'medium') ? true : false
-let staticCoordinates = []
-if (args.widgetParameter) {
-    staticCoordinates = parseInput(args.widgetParameter)
-    if (typeof staticCoordinates[1] !== 'undefined' && Object.keys(staticCoordinates[1]).length >= 3) {
-        MEDIUMWIDGET = true
-    }
-}
 
 var fm = getFilemanager()
-let fmConfigDirectory = fm.joinPath(fm.documentsDirectory(), '/coronaWidget')
+let fmConfigDirectory = fm.joinPath(fm.documentsDirectory(), '/coronaItalyWidget')
 let data = {}
 
 class IncidenceWidget {
@@ -98,44 +89,35 @@ class IncidenceWidget {
     }
     async createWidget() {
         const list = new ListWidget()
-        const headerRow = addHeaderRowTo(list)
-        const dataResponse = await getData(0)        
+        // const headerRow = addHeaderRowTo(list)
+        // const dataResponse = await getData(0)
+        const dataResponse = {};
+        dataResponse.status = 200;
+        dataResponse.data = [];
         if (dataResponse.status === 200 || dataResponse.status === 418) {
             let data = dataResponse.data
-            headerRow.addSpacer(3)
-    
-            let todayData = getDataForDate(data, 0)
-            let r = (todayData.d.r !== 0) ? (''+ todayData.d.r.toFixed(2)).replace('.', ',') : 'n/v';
-            addLabelTo(headerRow, r + 'ᴿ', Font.mediumSystemFont(14))
-            headerRow.addSpacer()
+            // headerRow.addSpacer(3)
         
             let chartdata = getChartData(data, 'd')
             let chartDataTitle = getGetLastCasesAndTrend(data, 'd')
-            addChartBlockTo(headerRow, chartDataTitle, chartdata, false)
-            headerRow.addSpacer(0)
-            list.addSpacer(3)
+            // addChartBlockTo(headerRow, chartDataTitle, chartdata, false)
+            // headerRow.addSpacer(0)
+            // list.addSpacer(3)
 
             const incidenceRow = list.addStack()
             incidenceRow.layoutHorizontally()
             incidenceRow.centerAlignContent()
         
             let padding = (MEDIUMWIDGET) ? 5 : 10
-            addIncidenceBlockTo(incidenceRow, data, [2,10,10,padding], 0, dataResponse.status)
-            if (MEDIUMWIDGET) {
-                const dataResponse1 = await getData(1)
-                if (dataResponse1.status === 200 || dataResponse1.status === 418) {
-                    let data1 = dataResponse1.data
-                    addIncidenceBlockTo(incidenceRow, data1, [2,padding,10,10], 1, dataResponse1.status)
-                }
-            }
+            addBlockTo(incidenceRow, data, [0,10,0,padding], 0, dataResponse.status)
             if (CONFIG_OPEN_URL) list.url = CONFIG_OPEN_URL
             list.refreshAfterDate = new Date(Date.now() + CONFIG_REFRESH_INTERVAL * 1000)
         } else {
-            headerRow.addSpacer()
-            list.addSpacer()
+            // headerRow.addSpacer()
+            // list.addSpacer()
             let errorBox = list.addStack()
             errorBox.setPadding(10, 10, 10, 10)
-            addLabelTo(errorBox, "⚡️ Daten konnten nicht geladen werden. \nWidget öffnen für reload. \n\nTIPP: Cache Id in Widgetparamter setzen für Offline modus.", Font.mediumSystemFont(10), Color.gray())
+            addLabelTo(errorBox, "⚡️ Non è stato possibile caricare i dati. \nApri il widget per ricaricarli. \n\nCONSIGLIO: Puoi impostare un ID per la cache nella configurazione.", Font.mediumSystemFont(10), Color.gray())
         }
         return list
     }
@@ -199,6 +181,19 @@ function addIncidenceBlockTo(view, data, padding, useStaticCoordsIndex, status =
     return incidenceBlockBox;
 }
 
+function addBlockTo(view, data, padding, useStaticCoordsIndex, status = 200) {
+    const blockBox = view.addStack();
+    blockBox.setPadding(padding[0], 0, padding[2], 0);
+    blockBox.layoutHorizontally();
+    blockBox.addSpacer(padding[1]);
+
+    const blockRows = blockBox.addStack();
+    blockRows.backgroundColor = new Color('cccccc', 0.1);
+    blockRows.setPadding(0,0,0,0);
+    blockRows.cornerRadius = 14;
+    blockRows.layoutVertically();
+}
+
 function addIncidence(view, data, useStaticCoordsIndex = false, status = 200) {
     const todayData = getDataForDate(data)
     const yesterdayData = getDataForDate(data, 1)
@@ -217,7 +212,7 @@ function addIncidence(view, data, useStaticCoordsIndex = false, status = 200) {
         addLabelTo(stackMainRowBox, todayData.updated.substr(0, 10), Font.mediumSystemFont(10), new Color('888888'))
         stackMainRowBox.addSpacer(0)
     } else if (useStaticCoordsIndex === 0 && status === 418) {
-        addLabelTo(stackMainRowBox, '⚡️ Offlinemodus!', Font.mediumSystemFont(10), new Color('dbc43d'))
+        addLabelTo(stackMainRowBox, '⚡️ Modalità offline!', Font.mediumSystemFont(10), new Color('dbc43d'))
         stackMainRowBox.addSpacer(0)
     } else {
         stackMainRowBox.addSpacer(10)
@@ -400,6 +395,17 @@ async function getLocation(staticCoordinateIndex = false) {
 }
 
 async function getData(useStaticCoordsIndex = false) {
+    let nazionali = {
+        positivi: -1,
+        ospedalizzati: -1,
+        deceduti: -1,
+    }
+
+    try {
+        let dataCases = await new Request(apiUrlNational).loadJSON();
+        cases = dataCases.features[0].attributes.value
+    } catch(e) { console.warn(e) }
+
     let rValue = 0
     try {
         rValue = await getRValue()
